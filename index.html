@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Proyectos - Ilobasco</title>
+    <!-- Carga de Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* Estilos base */
+        body { margin: 0; padding: 0; font-family: 'Inter', Arial, sans-serif; background-color: #f4f7f9; }
+        #map { height: 100vh; width: 100%; }
+        
+        /* Formulario flotante */
+        #form-container { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            right: 10px;
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000; 
+            display: none; 
+            max-width: 380px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+        }
+        #form-container h3 {
+            color: #007bff;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 1.4rem;
+        }
+        #form-container input, #form-container select, #form-container textarea { 
+            width: 100%; 
+            margin-bottom: 14px; 
+            padding: 10px; 
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        
+        /* Botones del formulario */
+        #form-container button { 
+            width: 48%; 
+            padding: 12px; 
+            margin: 1%;
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #form-container button:active {
+            transform: scale(0.98);
+        }
+
+        #save-point { background: #28a745; color: white; }
+        #save-point:hover { background: #218838; }
+
+        #cancel { background: #dc3545; color: white; }
+        #cancel:hover { background: #c82333; }
+        
+        /* Botón flotante principal (AGREGAR) - TAMAÑO REDUCIDO */
+        #add-point-btn { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 50px; /* Reducido de 60px */
+            height: 50px; /* Reducido de 60px */
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 50%; 
+            z-index: 1000; 
+            cursor: pointer; 
+            font-size: 30px; /* Reducido para centrar el '+' */
+            font-weight: 700;
+            line-height: 45px; /* Ajustado para centrar verticalmente */
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: background 0.3s, transform 0.1s;
+        }
+        #add-point-btn:hover { background: #0056b3; }
+        #add-point-btn:active { transform: scale(0.95); }
+
+
+        /* Botón flotante de LISTAR PROYECTOS (NUEVO) - TAMAÑO REDUCIDO */
+        #list-projects-btn { 
+            position: absolute; 
+            bottom: 20px; 
+            left: 20px; 
+            width: 50px; /* Reducido de 60px */
+            height: 50px; /* Reducido de 60px */
+            background: #ffc107; 
+            color: #343a40; 
+            border: none; 
+            border-radius: 50%; 
+            z-index: 1000; 
+            cursor: pointer; 
+            font-size: 20px; /* Reducido para el icono */
+            font-weight: 700;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: background 0.3s, transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #list-projects-btn:hover { background: #e0a800; }
+        #list-projects-btn:active { transform: scale(0.95); }
+
+        /* Botón de Geolocalización en formulario */
+        #use-location-btn {
+            background: #ffc107; color: #343a40; 
+            width: 100% !important; 
+            margin: 10px 0 12px 0 !important;
+        }
+        #use-location-btn:hover { background: #e0a800; }
+
+        /* Estilos de Popup */
+        .popup-buttons {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+        }
+        .popup-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .edit-btn { background: #007bff; color: white; }
+        .edit-btn:hover { background: #0056b3; }
+        .delete-btn { background: #6c757d; color: white; }
+        .delete-btn:hover { background: #5a6268; }
+
+        /* Estilos del Modal Personalizado (General) */
+        #custom-modal-overlay, #list-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        #custom-modal-content, #list-modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 450px; /* Más ancho para la lista */
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+            text-align: left;
+            border-top: 5px solid #007bff;
+        }
+
+        /* Estilos específicos de la lista */
+        .project-list-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .project-list-item:hover {
+            background-color: #e9ecef;
+        }
+
+        /* Estilos de notificaciones (se mantienen) */
+        #modal-title { font-size: 1.3rem; margin-bottom: 10px; color: #343a40; }
+        #modal-message { margin-bottom: 25px; color: #555; white-space: pre-wrap; line-height: 1.4; }
+        #modal-buttons button { padding: 10px 20px; border: none; border-radius: 6px; margin: 0 8px; cursor: pointer; font-weight: bold; transition: background-color 0.2s; }
+        #modal-buttons button:first-child { background: #007bff; color: white; }
+        #modal-buttons button:last-child { background: #f8f9fa; color: #343a40; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <!-- Botones flotantes (REDUCIDOS) -->
+    <button id="add-point-btn" title="Agregar Nuevo Proyecto">+</button>
+    <button id="list-projects-btn" title="Ver Lista de Proyectos">📋</button>
+
+
+    <!-- Formulario -->
+    <div id="form-container">
+        <h3 id="form-title">Agregar Proyecto</h3>
+        <input type="text" id="client_name" placeholder="Nombre del cliente *" required>
+        <input type="tel" id="client_phone" placeholder="Teléfono del cliente">
+        <input type="text" id="material" placeholder="Material interesado">
+        <input type="date" id="closing_date" required>
+        <select id="status" required>
+            <option value="">Estado *</option>
+            <option value="Detenido">Detenido</option>
+            <option value="Empezando">Empezando</option>
+            <option value="En construcción">En construcción</option>
+            <option value="Finalizando">Finalizando</option>
+        </select>
+        <textarea id="notes" placeholder="Notas adicionales" rows="3"></textarea>
+        <button id="use-location-btn">Usar mi ubicación actual</button>
+        <div style="display: flex; justify-content: space-between;">
+            <button id="save-point">Guardar</button>
+            <button id="cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Modal Personalizado para Notificaciones/Confirmaciones (EXISTENTE) -->
+    <div id="custom-modal-overlay">
+        <div id="custom-modal-content">
+            <h4 id="modal-title"></h4>
+            <p id="modal-message"></p>
+            <div id="modal-buttons">
+                <!-- Botones se inyectan aquí -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para Listar Proyectos (NUEVO) -->
+    <div id="list-modal-overlay">
+        <div id="list-modal-content">
+            <!-- El contenido de la lista se inyectará aquí -->
+        </div>
+    </div>
+
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- SISTEMA DE MODAL PERSONALIZADO (REEMPLAZO DE ALERT/CONFIRM) ---
+        const modalOverlay = document.getElementById('custom-modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalButtons = document.getElementById('modal-buttons');
+
+        function showMessage(title, message, onConfirm = null) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalButtons.innerHTML = '';
+            
+            // Botón principal (Aceptar/Cerrar)
+            const acceptBtn = document.createElement('button');
+            acceptBtn.textContent = onConfirm ? 'Confirmar' : 'Entendido';
+            acceptBtn.onclick = () => {
+                modalOverlay.style.display = 'none';
+                if (onConfirm) onConfirm();
+            };
+            
+            // Si es un cuadro de confirmación, añadimos el botón Cancelar
+            if (onConfirm) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancelar';
+                cancelBtn.onclick = () => modalOverlay.style.display = 'none';
+                modalButtons.appendChild(cancelBtn);
+            }
+            
+            modalButtons.appendChild(acceptBtn);
+            modalOverlay.style.display = 'flex';
+        }
+        // --- FIN MODAL ---
+
+        // Inicializar mapa en Ilobasco, Cabañas, El Salvador (13.9167, -88.8833)
+        const ILOBASCO_COORDS = [13.9167, -88.8833];
+        const map = L.map('map').setView(ILOBASCO_COORDS, 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Variables
+        let points = JSON.parse(localStorage.getItem('mapPoints')) || [];
+        const markers = {};
+        let currentEditingId = null;
+        let tempLatLng = null;
+        let isUsingGPS = false;
+
+        // Íconos por color (Rojo, Azul y Verde)
+        const iconUrls = {
+            red: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            green: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            blue: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png'
+        };
+
+        function getIcon(color) {
+            return L.icon({
+                iconUrl: iconUrls[color],
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+        }
+
+        // --- LÓGICA DE FECHAS Y COLORES ---
+
+        // Helper: Calcula los días restantes para la fecha de cierre.
+        function getDaysRemaining(dateStr) {
+            if (!dateStr) return 9999; 
+            const closing = new Date(dateStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            closing.setHours(0, 0, 0, 0);
+            return Math.ceil((closing - today) / (1000 * 60 * 60 * 24));
+        }
+
+        /**
+         * Determina el color del marcador basado en la urgencia.
+         * ROJO: <= 15 días (incluye vencidos)
+         * AZUL: 16 a 30 días
+         * VERDE: > 30 días
+         */
+        function getColorFromDate(dateStr) {
+            const diff = getDaysRemaining(dateStr);
+            
+            if (diff <= 15) return 'red';   
+            if (diff <= 30) return 'blue';  
+            return 'green';                 
+        }
+        // --- FIN LÓGICA DE FECHAS Y COLORES ---
+
+
+        // Crear popup con botones funcionales
+        function createPopupContent(point) {
+            const days = getDaysRemaining(point.closing_date);
+            const daysText = days <= 0 ? `<span style="color: #dc3545; font-weight: bold;">¡VENCIDO!</span>` : `Faltan ${days} días`;
+
+            const div = L.DomUtil.create('div');
+            div.innerHTML = `
+                <strong style="color: #007bff;">${point.client_name || 'N/A'}</strong><br>
+                <b>Tel:</b> ${point.client_phone ? `<a href="tel:${point.client_phone}" style="color:#28a745;">${point.client_phone}</a>` : 'N/A'}<br>
+                <b>Material:</b> ${point.material || 'N/A'}<br>
+                <b>Cierre:</b> ${point.closing_date || 'N/A'} (${daysText})<br>
+                <b>Estado:</b> ${point.status || 'N/A'}<br>
+                <i style="font-size: 0.85em; color: #6c757d;">Notas: ${point.notes ? point.notes.replace(/\n/g, '<br>') : 'N/A'}</i><br>
+                <div class="popup-buttons">
+                    <button class="edit-btn">Editar</button>
+                    <button class="delete-btn">Eliminar</button>
+                </div>
+            `;
+
+            L.DomEvent.disableClickPropagation(div);
+
+            div.querySelector('.edit-btn').onclick = (e) => {
+                e.stopPropagation();
+                editPoint(point.id);
+                map.closePopup();
+            };
+
+            div.querySelector('.delete-btn').onclick = (e) => {
+                e.stopPropagation();
+                // Reemplazo de confirm()
+                showMessage('Confirmación de Eliminación', 
+                            `¿Estás seguro de que quieres eliminar el proyecto de "${point.client_name}"?`, 
+                            () => deletePointConfirmed(point.id));
+                map.closePopup();
+            };
+
+            return div;
+        }
+
+        // Agregar marcador
+        function addMarkerToMap(point) {
+             // Eliminamos el marcador anterior si existe (para edición)
+            if (markers[point.id]) {
+                markers[point.id].remove();
+                delete markers[point.id];
+            }
+
+            // Usar la nueva lógica de color
+            const color = getColorFromDate(point.closing_date);
+            const icon = getIcon(color);
+            const marker = L.marker([point.lat, point.lng], { icon }).addTo(map);
+            marker.bindPopup(createPopupContent(point), { autoClose: false, closeOnClick: false });
+            markers[point.id] = marker;
+        }
+
+        // Cargar puntos
+        function loadPoints() {
+            points.forEach(addMarkerToMap);
+        }
+
+        // Elementos
+        const addBtn = document.getElementById('add-point-btn');
+        const listBtn = document.getElementById('list-projects-btn');
+        const form = document.getElementById('form-container');
+        const saveBtn = document.getElementById('save-point');
+        const cancelBtn = document.getElementById('cancel');
+        const useLocationBtn = document.getElementById('use-location-btn');
+        const formTitle = document.getElementById('form-title');
+        const listModalOverlay = document.getElementById('list-modal-overlay');
+        const listModalContent = document.getElementById('list-modal-content');
+
+
+        // Limpiar formulario
+        function clearForm() {
+            document.getElementById('client_name').value = '';
+            document.getElementById('client_phone').value = '';
+            document.getElementById('material').value = '';
+            document.getElementById('closing_date').value = '';
+            document.getElementById('status').value = '';
+            document.getElementById('notes').value = '';
+        }
+        
+        // Función de reseteo de estado
+        function resetState() {
+            form.style.display = 'none';
+            addBtn.style.display = 'block';
+            listBtn.style.display = 'flex'; // Asegurar que el botón de lista regrese
+            currentEditingId = null;
+            tempLatLng = null;
+            isUsingGPS = false;
+            clearForm();
+            // Asegura que el listener del mapa se elimine si el usuario cancela
+            map.off('click', mapClickListener);
+        }
+
+        // Manejador de clic en el mapa
+        function mapClickListener(e) {
+            if (!isUsingGPS && form.style.display !== 'none') {
+                tempLatLng = e.latlng;
+                showMessage('Ubicación Seleccionada', 'Coordenadas: ' + tempLatLng.lat.toFixed(4) + ', ' + tempLatLng.lng.toFixed(4) + '\nYa puedes guardar el proyecto.');
+            }
+        }
+
+        // Abrir formulario
+        addBtn.onclick = () => {
+            form.style.display = 'block';
+            addBtn.style.display = 'none';
+            listBtn.style.display = 'none'; // Ocultar botón de lista
+            formTitle.textContent = 'Agregar Nuevo Proyecto';
+            clearForm();
+            currentEditingId = null;
+            tempLatLng = null;
+            isUsingGPS = false;
+
+            // Opción 1: Toca el mapa
+            map.once('click', mapClickListener);
+
+            // Mostrar instrucción
+            showMessage('Selecciona la Ubicación', 'Por favor, toca el punto exacto en el mapa O usa el botón "Usar mi ubicación actual" si estás en el sitio del proyecto.');
+        };
+
+        // Botón: Usar GPS
+        useLocationBtn.onclick = () => {
+            isUsingGPS = true;
+            showMessage('Geolocalización', 'Obteniendo tu ubicación actual...');
+
+            // Desactivar temporalmente el listener de mapa para evitar conflictos
+            map.off('click', mapClickListener);
+            
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    tempLatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    map.setView(tempLatLng, 16);
+                    // Mostrar confirmación
+                    showMessage('¡Ubicación Capturada!', `Ubicación GPS fijada en (${tempLatLng.lat.toFixed(4)}, ${tempLatLng.lng.toFixed(4)}).\nAhora completa el formulario y guarda.`);
+                    isUsingGPS = false;
+                },
+                err => {
+                    // Mostrar error
+                    showMessage('Error de GPS', 'No se pudo obtener la ubicación. Asegúrate de tener el GPS activado y de haber dado permiso.\nError: ' + err.message);
+                    isUsingGPS = false;
+                    // Reactivar el listener de mapa si el GPS falla
+                    map.once('click', mapClickListener);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        };
+
+        // Cancelar
+        cancelBtn.onclick = resetState;
+
+        // Editar
+        function editPoint(id) {
+            const point = points.find(p => p.id === id);
+            if (!point) return;
+
+            form.style.display = 'block';
+            addBtn.style.display = 'none';
+            listBtn.style.display = 'none'; // Ocultar botón de lista
+            formTitle.textContent = 'Editar Proyecto Existente';
+            currentEditingId = id;
+            tempLatLng = { lat: point.lat, lng: point.lng };
+
+            document.getElementById('client_name').value = point.client_name || '';
+            document.getElementById('client_phone').value = point.client_phone || '';
+            document.getElementById('material').value = point.material || '';
+            document.getElementById('closing_date').value = point.closing_date || '';
+            document.getElementById('status').value = point.status || '';
+            document.getElementById('notes').value = point.notes || '';
+
+            // Permitir nueva selección de ubicación al editar
+            map.once('click', mapClickListener);
+            
+            // Mostrar instrucción
+            showMessage('Modificar Ubicación', 'El punto actual está seleccionado. Si deseas cambiar la ubicación, toca un nuevo punto en el mapa o usa "Usar mi ubicación actual".');
+        }
+
+        // ELIMINAR (CONFIRMADO)
+        function deletePointConfirmed(id) {
+            points = points.filter(p => p.id !== id);
+            localStorage.setItem('mapPoints', JSON.stringify(points));
+            if (markers[id]) {
+                map.removeLayer(markers[id]);
+                delete markers[id];
+            }
+            map.closePopup();
+            showMessage('Eliminado', 'El proyecto ha sido eliminado exitosamente.');
+        }
+        
+        function deletePoint(id) {} // Mantenida por compatibilidad
+
+        // Guardar
+        saveBtn.onclick = () => {
+            if (!tempLatLng) {
+                showMessage('Error de Ubicación', 'Debes seleccionar la ubicación del proyecto tocando el mapa o usando el GPS antes de guardar.');
+                return;
+            }
+
+            const data = {
+                client_name: document.getElementById('client_name').value.trim(),
+                client_phone: document.getElementById('client_phone').value.trim(),
+                material: document.getElementById('material').value.trim(),
+                closing_date: document.getElementById('closing_date').value,
+                status: document.getElementById('status').value,
+                notes: document.getElementById('notes').value.trim()
+            };
+
+            if (!data.client_name || !data.closing_date || !data.status) {
+                showMessage('Error de Validación', 'Completa los campos obligatorios: Nombre del cliente, Fecha de cierre y Estado.');
+                return;
+            }
+
+            if (currentEditingId) {
+                const point = points.find(p => p.id === currentEditingId);
+                Object.assign(point, data, { lat: tempLatLng.lat, lng: tempLatLng.lng });
+                addMarkerToMap(point);
+            } else {
+                const newPoint = { id: Date.now(), lat: tempLatLng.lat, lng: tempLatLng.lng, ...data };
+                points.push(newPoint);
+                addMarkerToMap(newPoint);
+            }
+
+            localStorage.setItem('mapPoints', JSON.stringify(points));
+            resetState();
+            showMessage('Guardado Exitoso', 'El proyecto ha sido guardado correctamente.');
+        };
+        
+        // --- LÓGICA DE LISTA DE PROYECTOS ---
+
+        function showProjectList() {
+            listModalContent.innerHTML = ''; 
+
+            const header = document.createElement('h3');
+            header.textContent = 'Proyectos Registrados';
+            header.style.cssText = 'color: #007bff; text-align: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-top: 0;';
+            listModalContent.appendChild(header);
+
+            const listContainer = document.createElement('div');
+            listContainer.style.maxHeight = '70vh';
+            listContainer.style.overflowY = 'auto';
+            listContainer.style.padding = '0 10px';
+
+            // 1. Clonar y ordenar la lista: del que menos días falta al que más
+            const sortedPoints = [...points].sort((a, b) => {
+                const daysA = getDaysRemaining(a.closing_date);
+                const daysB = getDaysRemaining(b.closing_date);
+                return daysA - daysB;
+            });
+
+
+            if (sortedPoints.length === 0) {
+                listContainer.innerHTML = '<p style="text-align: center; color: #6c757d;">Aún no hay proyectos registrados.</p>';
+            } else {
+                sortedPoints.forEach(point => {
+                    const daysRemaining = getDaysRemaining(point.closing_date);
+                    const colorName = getColorFromDate(point.closing_date); // 'red', 'blue', 'green'
+                    
+                    // 2. Mapear colorName a código hexadecimal para el borde
+                    let borderColor = '#007bff'; 
+                    if (colorName === 'red') {
+                        borderColor = '#dc3545'; // Rojo (Urgente: <= 15 días)
+                    } else if (colorName === 'blue') {
+                        borderColor = '#007bff'; // Azul (Medio: 16-30 días)
+                    } else if (colorName === 'green') {
+                        borderColor = '#28a745'; // Verde (Lejano: > 30 días)
+                    }
+
+                    // 3. Determinar el texto de los días
+                    let daysText;
+                    if (daysRemaining < 0) {
+                        daysText = `<span style="color: #dc3545; font-weight: bold;">¡VENCIDO! (${Math.abs(daysRemaining)} días)</span>`;
+                    } else if (daysRemaining === 0) {
+                        daysText = `<span style="color: #dc3545; font-weight: bold;">¡HOY CIERRA!</span>`;
+                    }
+                    else {
+                        daysText = `Faltan ${daysRemaining} días`;
+                    }
+
+
+                    const item = document.createElement('div');
+                    item.className = 'project-list-item';
+                    item.style.borderLeft = `5px solid ${borderColor}`;
+                    item.innerHTML = `
+                        <div style="font-weight: bold; color: #343a40; font-size: 1.1em;">${point.client_name}</div>
+                        <div style="font-size: 0.9em; color: #6c757d; display: flex; justify-content: space-between;">
+                            <span>${daysText}</span>
+                            <span>Estado: <strong>${point.status}</strong></span>
+                        </div>
+                    `;
+                    
+                    // Al hacer click, centra el mapa y abre el popup
+                    item.onclick = () => {
+                        map.setView([point.lat, point.lng], 16);
+                        // Asegurarse de que el marcador existe antes de intentar abrir el popup
+                        if (markers[point.id]) {
+                            markers[point.id].openPopup();
+                        } else {
+                            showMessage("Error", "No se encontró el marcador en el mapa para este proyecto. Puede ser un error de carga.");
+                        }
+                        closeListModal();
+                    };
+
+                    listContainer.appendChild(item);
+                });
+            }
+
+            listModalContent.appendChild(listContainer);
+            
+            // Botón para cerrar la lista
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Cerrar Lista';
+            closeBtn.style.cssText = 'width: 100%; margin-top: 20px; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background-color 0.2s;';
+            closeBtn.onclick = closeListModal;
+            listModalContent.appendChild(closeBtn);
+
+            listModalOverlay.style.display = 'flex';
+        }
+
+        function closeListModal() {
+            listModalOverlay.style.display = 'none';
+        }
+
+        listBtn.onclick = showProjectList;
+        // --- FIN LÓGICA DE LISTA DE PROYECTOS ---
+
+
+        // Cargar puntos al iniciar
+        loadPoints();
+    </script>
+</body>
+</html>
