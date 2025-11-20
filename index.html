@@ -323,8 +323,8 @@
         function getColorFromDate(dateStr) {
             const diff = getDaysRemaining(dateStr);
             
-            if (diff <= 15) return 'red';   
-            if (diff <= 30) return 'blue';  
+            if (diff <= 7) return 'red';   
+            if (diff <= 15) return 'blue';  
             return 'green';                 
         }
         // --- FIN LÓGICA DE FECHAS Y COLORES ---
